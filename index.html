@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamSync AI · Student Edition</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        :root {
+            --font-display: 'Plus Jakarta Sans', sans-serif;
+            --font-body: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --bg-base: #09090b;
+            --panel-bg: rgba(9,9,11,0.6);
+            --border-color: rgba(255,255,255,0.08);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-tertiary: #64748b;
+            --accent-purple: #a855f7;
+            --accent-purple-dim: rgba(168,85,247,0.15);
+            --accent-green: #22c55e;
+            --left-sidebar-width: 240px;
+            --right-kanban-width: 260px;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:var(--font-body); background-color:var(--bg-base); color:var(--text-primary);
+               height:100vh; display:flex; overflow:hidden; font-size:14px; }
+        .nebula-container { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+        .nebula { position:absolute; border-radius:50%; filter:blur(55px); }
+        .nebula-1 { top:-10%; left:15%; width:50vw; height:50vw; background:radial-gradient(circle, rgba(168,85,247,0.55) 0%, rgba(168,85,247,0) 70%); }
+        .nebula-2 { bottom:-20%; right:10%; width:60vw; height:60vw; background:radial-gradient(circle, rgba(59,130,246,0.45) 0%, rgba(59,130,246,0) 70%); }
+        
+        /* Layout */
+        .layout-panel { position:relative; z-index:10; display:flex; flex-direction:column; backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); background:var(--panel-bg); }
+        .sidebar-left { width:var(--left-sidebar-width); min-width:var(--left-sidebar-width); border-right:1px solid var(--border-color); padding:24px 16px; overflow-y:auto; overflow-x:hidden; }
+        
+        /* Brand */
+        .brand { margin-bottom:32px; padding:0 8px; }
+        .brand-name { font-family:var(--font-display); font-size:1.25rem; font-weight:700; letter-spacing:-0.02em; display:flex; align-items:center; gap:8px; }
+        .brand-icon { color:var(--accent-purple); }
+        .brand-badge { font-family:var(--font-mono); font-size:0.65rem; color:var(--accent-purple); text-transform:uppercase; letter-spacing:0.05em; margin-top:4px; opacity:0.8; display:flex; align-items:center; gap:4px; }
+        .brand-badge::before { content:''; width:4px; height:4px; background:var(--accent-purple); border-radius:50%; box-shadow:0 0 8px var(--accent-purple); }
+        
+        /* Navigation */
+        .nav-section { margin-bottom:24px; }
+        .nav-title { font-family:var(--font-mono); font-size:0.7rem; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.05em; padding:0 8px; margin-bottom:12px; }
+        .nav-item { display:flex; align-items:center; gap:10px; padding:8px; border-radius:6px; color:var(--text-secondary); text-decoration:none; transition:all 0.2s; font-weight:500; }
+        .nav-item:hover, .nav-item.active { background:rgba(255,255,255,0.05); color:var(--text-primary); }
+        .nav-item.active { background:rgba(255,255,255,0.08); }
+        
+        /* Team List */
+        .team-list { display:flex; flex-direction:column; gap:4px; }
+        .team-member { display:flex; align-items:center; gap:8px; padding:8px; border-radius:6px; color:var(--text-secondary); font-size:0.85rem; transition:all 0.2s; cursor:default; }
+        .team-member:hover { background:rgba(255,255,255,0.05); color:var(--text-primary); }
+        
+        /* Status Dots */
+        .status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+        .status-dot.online { background:#22c55e; box-shadow:0 0 6px rgba(34,197,94,0.4); }
+        .status-dot.away { background:#eab308; }
+        .status-dot.busy { background:#ef4444; }
+        .status-dot.offline { background:#64748b; }
+        
+        .team-avatar { width:22px; height:22px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:600; font-family:var(--font-display); flex-shrink:0; }
+        .member-role { font-family:var(--font-mono); font-size:0.65rem; color:var(--text-tertiary); margin-left:auto; }
+        
+        /* User Profile */
+        .user-profile { display:flex; align-items:center; gap:12px; padding-top:20px; border-top:1px solid var(--border-color); margin-top:auto; }
+        .user-info { display:flex; flex-direction:column; flex:1; }
+        .user-name { font-family:var(--font-display); font-size:0.85rem; font-weight:600; color:var(--text-primary); }
+        .user-role { font-size:0.75rem; color:var(--text-tertiary); }
+        .logout-btn { background:none; border:none; color:var(--text-tertiary); cursor:pointer; font-size:0.7rem; font-family:var(--font-mono); padding:4px 6px; border-radius:4px; transition:all 0.2s; }
+        .logout-btn:hover { color:#ef4444; background:rgba(239,68,68,0.1); }
+        
+        /* Main Chat */
+        .main-chat { flex:1; border-right:1px solid var(--border-color); background:rgba(9,9,11,0.3); display:flex; flex-direction:column; }
+        .chat-header { height:72px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; padding:0 20px; background:rgba(9,9,11,0.8); backdrop-filter:blur(10px); flex-shrink:0; gap:16px; }
+        .header-left { display:flex; align-items:center; gap:12px; min-width:0; }
+        .header-title-block { display:flex; flex-direction:column; gap:4px; min-width:0; }
+        .header-sprint-name { font-family:var(--font-display); font-size:1rem; font-weight:600; white-space:nowrap; }
+        .header-meta-row { display:flex; align-items:center; gap:5px; flex-wrap:nowrap; }
+        .meta-pill { font-family:var(--font-mono); font-size:0.62rem; padding:2px 7px; border-radius:20px; white-space:nowrap; display:inline-flex; align-items:center; gap:4px; }
+        .status-pill { background:rgba(239,68,68,0.1); color:#fca5a5; border:1px solid rgba(239,68,68,0.25); }
+        .team-pill { background:rgba(168,85,247,0.1); color:#d8b4fe; border:1px solid rgba(168,85,247,0.25); }
+        .online-pill { background:rgba(59,130,246,0.1); color:#93c5fd; border:1px solid rgba(59,130,246,0.2); }
+        .memory-pill { background:rgba(168,85,247,0.1); color:#d8b4fe; border:1px solid rgba(168,85,247,0.25); }
+        .ws-dot { width:5px; height:5px; border-radius:50%; background:#64748b; transition:all 0.5s; }
+        .memory-count-pulse { width:5px; height:5px; border-radius:50%; background:var(--accent-purple); animation:pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.5;transform:scale(0.8);} }
+        
+        /* Actions */
+        .header-actions { display:flex; gap:6px; align-items:center; flex-wrap:nowrap; flex-shrink:0; }
+        .header-btn { background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:var(--text-secondary); border-radius:6px; padding:6px 12px; font-family:var(--font-mono); font-size:0.75rem; display:flex; align-items:center; gap:6px; cursor:pointer; transition:all 0.2s; }
+        .header-btn:hover { background:rgba(255,255,255,0.1); color:var(--text-primary); }
+        .header-btn:disabled { opacity:0.7; cursor:default; pointer-events:none; }
+        
+        /* Chat Area */
+        .chat-scroll-area { flex:1; overflow-y:auto; padding:32px 24px; display:flex; flex-direction:column; gap:24px; }
+        ::-webkit-scrollbar { width:6px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:10px; }
+        
+        .message { display:flex; gap:16px; max-width:85%; }
+        .message.user { align-self:flex-end; flex-direction:row-reverse; }
+        .avatar { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); font-family:var(--font-display); font-weight:600; font-size:0.9rem; }
+        .avatar.ai { background:linear-gradient(135deg, rgba(168,85,247,0.2), rgba(59,130,246,0.2)); border-color:rgba(168,85,247,0.3); color:var(--accent-purple); }
+        .message-content { display:flex; flex-direction:column; gap:6px; }
+        .message.user .message-content { align-items:flex-end; }
+        .recall-badge { align-self:flex-start; display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:99px; background:var(--accent-purple-dim); border:1px solid rgba(168,85,247,0.3); color:#d8b4fe; font-family:var(--font-mono); font-size:0.7rem; margin-bottom:4px; }
+        .mention { color:var(--accent-purple); background:var(--accent-purple-dim); padding:2px 6px; border-radius:4px; font-family:var(--font-mono); font-size:0.85em; font-weight:600; display:inline-block; }
+        .bubble { background:rgba(255,255,255,0.04); border:1px solid var(--border-color); padding:12px 16px; border-radius:0 12px 12px 12px; line-height:1.5; color:var(--text-primary); }
+        .message.user .bubble { background:var(--text-primary); color:var(--bg-base); border-radius:12px 0 12px 12px; font-weight:500; }
+        
+        /* Action Cards */
+        .action-card { background:rgba(0,0,0,0.4); border:1px solid var(--border-color); border-radius:12px; padding:16px; margin-top:8px; width:100%; max-width:340px; }
+        .action-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; font-family:var(--font-display); }
+        .action-title { font-weight:600; font-size:0.95rem; display:flex; align-items:center; gap:6px; }
+        .action-body { background:rgba(255,255,255,0.03); border-radius:8px; padding:12px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.05); }
+        .task-row { display:flex; align-items:center; justify-content:space-between; font-size:0.85rem; }
+        .task-user-swap { display:flex; align-items:center; gap:8px; color:var(--text-secondary); }
+        .user-pill { display:flex; align-items:center; gap:4px; background:rgba(255,255,255,0.1); padding:2px 8px; border-radius:99px; font-family:var(--font-mono); font-size:0.7rem; color:var(--text-primary); }
+        .btn-approve { width:100%; background:var(--text-primary); color:var(--bg-base); border:none; padding:10px; border-radius:6px; font-family:var(--font-display); font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; transition:all 0.2s; }
+        .btn-approve:hover { opacity:0.9; transform:translateY(-1px); }
+        .btn-approve.approved { background:rgba(34,197,94,0.15); color:var(--accent-green); border:1px solid rgba(34,197,94,0.3); pointer-events:none; }
+        
+        .intervention-card { border:3px solid #ef4444 !important; background:rgba(239,68,68,0.1) !important; max-width:420px; animation:interventionEntry 0.4s ease-out, pulseRed 1.8s ease-in-out 0.4s infinite; }
+        @keyframes interventionEntry { 0% { transform:scale(0.92) translateY(6px); opacity:0; } 100% { transform:scale(1) translateY(0); opacity:1; } }
+        @keyframes pulseRed { 0% { box-shadow:0 0 0 0 rgba(239,68,68,0.55); } 70% { box-shadow:0 0 0 10px rgba(239,68,68,0); } 100% { box-shadow:0 0 0 0 rgba(239,68,68,0); } }
+        
+        /* Typing */
+        .typing-indicator { display:flex; gap:4px; padding:4px 8px; align-items:center; height:24px; }
+        .typing-dot { width:5px; height:5px; background:var(--text-tertiary); border-radius:50%; animation:typing 1.4s infinite ease-in-out both; }
+        .typing-dot:nth-child(1) { animation-delay:-0.32s; } .typing-dot:nth-child(2) { animation-delay:-0.16s; }
+        @keyframes typing { 0%,80%,100%{transform:scale(0);} 40%{transform:scale(1);} }
+        
+        /* Input Area */
+        .chat-input-wrapper { padding:20px 24px; background:var(--panel-bg); border-top:1px solid var(--border-color); flex-shrink:0; }
+        .chat-input-container { position:relative; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:12px 16px; display:flex; align-items:flex-end; gap:12px; transition:border-color 0.2s; }
+        .chat-input-container:focus-within { border-color:rgba(255,255,255,0.25); }
+        .chat-input-container textarea { flex:1; background:transparent; border:none; color:var(--text-primary); font-family:var(--font-body); font-size:0.95rem; resize:none; outline:none; max-height:150px; padding:0; line-height:1.5; height:22px; }
+        .btn-send { background:var(--text-primary); color:var(--bg-base); border:none; width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:opacity 0.2s; }
+        
+        /* Right Sidebar Kanban */
+        .sidebar-right { width:var(--right-kanban-width); min-width:var(--right-kanban-width); padding:24px 16px; display:flex; flex-direction:column; gap:24px; background:rgba(9,9,11,0.7); }
+        .kanban-header { font-family:var(--font-display); font-weight:600; font-size:1rem; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+        .kanban-board { display:flex; flex-direction:column; gap:16px; flex:1; overflow-y:auto; padding-right:4px; }
+        .k-column-title { font-family:var(--font-mono); font-size:0.7rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; display:flex; justify-content:space-between; }
+        .k-count { background:rgba(255,255,255,0.1); padding:0 6px; border-radius:4px; color:var(--text-primary); }
+        .k-card { background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:8px; padding:10px 12px; margin-bottom:8px; }
+        .k-card-title { font-size:0.85rem; font-weight:500; margin-bottom:4px; line-height:1.3; }
+        .k-card-meta { display:flex; justify-content:space-between; align-items:center; }
+        .k-tag { font-family:var(--font-mono); font-size:0.65rem; padding:2px 6px; border-radius:4px; }
+        .deadline-badge { font-family:var(--font-mono); font-size:0.6rem; padding:1px 6px; border-radius:3px; margin-bottom:6px; display:inline-block; background:rgba(255,255,255,0.06); color:var(--text-tertiary); border:1px solid var(--border-color); }
+        .deadline-badge.due-soon  { background:rgba(234,179,8,0.12); color:#eab308; border-color:rgba(234,179,8,0.3); }
+        .deadline-badge.due-today { background:rgba(239,68,68,0.12); color:#ef4444; border-color:rgba(239,68,68,0.3); }
+        .deadline-badge.overdue   { background:rgba(239,68,68,0.2); color:#ef4444; border-color:rgba(239,68,68,0.5); font-weight:600; }
+        .k-avatar { width:20px; height:20px; border-radius:4px; background:#eab308; color:#000; display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-size:0.65rem; font-weight:700; }
+        .col-done .k-card { opacity:0.6; } .col-done .k-card-title { text-decoration:line-through; color:var(--text-secondary); }
+        
+        /* System Notices */
+        .system-notice { align-self:center; font-family:var(--font-mono); font-size:0.75rem; color:var(--text-secondary); background:rgba(255,255,255,0.05); padding:6px 14px; border-radius:6px; border:1px solid var(--border-color); margin-top:8px; animation:fadeIn 0.3s ease-out; max-width:90%; text-align:center; }
+        .proactive-alert { font-family:var(--font-body) !important; font-size:0.8rem !important; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(5px);} to{opacity:1;transform:translateY(0);} }
+        
+        /* Toggles */
+        .memory-toggle-wrapper { display:flex; align-items:center; gap:8px; background:rgba(168,85,247,0.1); padding:4px 10px; border-radius:6px; border:1px solid rgba(168,85,247,0.3); transition:all 0.3s; }
+        .memory-toggle-wrapper.disabled { background:rgba(255,255,255,0.05); border-color:var(--border-color); }
+        .memory-label { font-family:var(--font-mono); font-size:0.75rem; color:var(--accent-purple); font-weight:600; text-transform:uppercase; transition:color 0.3s; }
+        .memory-toggle-wrapper.disabled .memory-label { color:var(--text-tertiary); }
+        .switch { position:relative; display:inline-block; width:30px; height:16px; } .switch input { opacity:0; width:0; height:0; }
+        .slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:rgba(255,255,255,0.2); transition:.4s; border-radius:34px; }
+        .slider:before { position:absolute; content:""; height:10px; width:10px; left:3px; bottom:3px; background-color:white; transition:.4s; border-radius:50%; }
+        input:checked + .slider { background-color:var(--accent-purple); } input:checked + .slider:before { transform:translateX(14px); }
+        
+        /* Modals */
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:200; align-items:center; justify-content:center; backdrop-filter:blur(8px); }
+        .modal-box { background:rgba(15,15,18,0.98); border-radius:16px; padding:32px; display:flex; flex-direction:column; gap:20px; }
+        .auth-modal-box { max-width:400px; width:90%; border:1px solid rgba(168,85,247,0.3); box-shadow:0 0 60px rgba(168,85,247,0.12); }
+        .auth-brand { display:flex; align-items:center; gap:10px; margin-bottom:4px; } .auth-brand svg { color:var(--accent-purple); }
+        .auth-brand-name { font-family:var(--font-display); font-size:1.2rem; font-weight:700; }
+        .auth-subtitle { font-size:0.85rem; color:var(--text-secondary); }
+        .auth-field { display:flex; flex-direction:column; gap:6px; }
+        .auth-label { font-family:var(--font-mono); font-size:0.7rem; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.05em; }
+        .auth-input { background:rgba(255,255,255,0.05); border:1px solid var(--border-color); border-radius:8px; padding:10px 14px; color:var(--text-primary); font-family:var(--font-body); font-size:0.9rem; outline:none; transition:border-color 0.2s; }
+        .auth-input:focus { border-color:rgba(168,85,247,0.5); }
+        .auth-submit { background:var(--accent-purple); color:#fff; border:none; padding:12px 20px; border-radius:8px; font-family:var(--font-display); font-weight:600; font-size:0.95rem; cursor:pointer; transition:opacity 0.2s; }
+        .auth-submit:hover { opacity:0.85; } .auth-submit:disabled { opacity:0.5; cursor:default; }
+        .auth-error { color:#ef4444; font-size:0.8rem; font-family:var(--font-mono); min-height:16px; }
+        
+        .meeting-modal-box { max-width:640px; width:90%; border:1px solid rgba(59,130,246,0.4); }
+        .modal-title { font-family:var(--font-display); font-size:1rem; font-weight:600; color:#93c5fd; display:flex; align-items:center; gap:8px; }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; }
+        .modal-close { background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:1.25rem; transition:color 0.2s; }
+        .modal-textarea { width:100%; height:200px; background:rgba(255,255,255,0.04); border:1px solid var(--border-color); border-radius:8px; padding:12px 16px; color:var(--text-primary); font-family:var(--font-body); font-size:0.9rem; resize:vertical; outline:none; transition:border-color 0.2s; line-height:1.5; }
+        .modal-hint { font-size:0.75rem; color:var(--text-tertiary); font-family:var(--font-mono); }
+        .modal-submit { background:#3b82f6; color:#fff; border:none; padding:10px 20px; border-radius:6px; font-family:var(--font-display); font-weight:600; cursor:pointer; transition:opacity 0.2s; align-self:flex-end; }
+        
+        .velocity-modal-box { max-width:640px; width:90%; border:1px solid rgba(168,85,247,0.4); }
+        
+        .memory-modal-box { max-width:800px; width:90%; border:1px solid var(--accent-purple); }
+        .timeline-container { padding:20px 0 20px 30px; border-left:2px solid rgba(168,85,247,0.3); margin-left:20px; display:flex; flex-direction:column; gap:20px; }
+        .timeline-item { position:relative; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); border-radius:8px; padding:14px 16px; }
+        .timeline-item::before { content:''; position:absolute; left:-37px; top:14px; width:12px; height:12px; border-radius:50%; background:var(--bg-base); border:2px solid var(--accent-purple); box-shadow:0 0 10px rgba(168,85,247,0.5); }
+        .tl-title { font-size:0.85rem; color:var(--text-secondary); line-height:1.4; }
+        .tl-badge { position:absolute; top:-10px; right:16px; background:var(--accent-purple-dim); color:#d8b4fe; padding:2px 8px; border-radius:99px; font-size:0.65rem; font-family:var(--font-mono); border:1px solid rgba(168,85,247,0.3); }
+        
+        /* Mobile */
+        .mobile-menu-btn { display:none; background:none; border:none; color:var(--text-primary); cursor:pointer; padding:4px; }
+        @media (max-width:1024px) { .sidebar-right { display:none !important; } }
+        @media (max-width:768px) { .sidebar-left { position:absolute; left:-100%; height:100%; z-index:50; transition:left 0.3s cubic-bezier(0.4,0,0.2,1); background:rgba(9,9,11,0.95); border-right:1px solid rgba(255,255,255,0.1); } .sidebar-left.open { left:0; box-shadow:10px 0 30px rgba(0,0,0,0.8); } .mobile-menu-btn { display:block; } .chat-header { padding:0 16px; } .header-btn { display:none; } .message { max-width:95%; } }
+    </style>
+</head>
+<body>
+    <div class="nebula-container"><div class="nebula nebula-1"></div><div class="nebula nebula-2"></div></div>
+
+    <aside class="layout-panel sidebar-left">
+        <div class="brand">
+            <div class="brand-name">
+                <svg class="brand-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                TeamSync AI
+            </div>
+            <div class="brand-badge">Powered by Hindsight</div>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title">Classes</div>
+            <a href="#" class="nav-item active">CS401 Capstone</a>
+        </div>
+        <div class="nav-section">
+            <div class="nav-title" style="display:flex;justify-content:space-between;align-items:center;">
+                Project Team <span id="member-count" style="font-family:var(--font-mono);font-size:0.6rem;color:var(--text-tertiary);background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:10px;">0</span>
+            </div>
+            <div class="team-list" id="team-member-list"></div>
+        </div>
+        <div class="user-profile">
+            <div class="avatar" id="sidebar-avatar" style="background:var(--text-primary);color:var(--bg-base);width:32px;height:32px;">?</div>
+            <div class="user-info">
+                <div class="user-name" id="sidebar-name">—</div>
+                <div class="user-role" id="sidebar-role">—</div>
+            </div>
+            <button class="logout-btn" onclick="logout()">Leave</button>
+        </div>
+    </aside>
+
+    <main class="layout-panel main-chat">
+        <header class="chat-header">
+            <div class="header-left">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+                <div class="header-title-block">
+                    <span class="header-sprint-name">🎓 CS401 Final Project</span>
+                    <div class="header-meta-row">
+                        <span class="meta-pill status-pill">DUE TOMORROW</span>
+                        <span class="meta-pill team-pill"><span class="ws-dot" id="ws-dot"></span><span id="team-code-badge">—</span></span>
+                        <span class="meta-pill memory-pill" id="memory-count-badge" style="display:none;"><span class="memory-count-pulse"></span><span id="memory-count-text">0 memories</span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="memory-toggle-wrapper" id="memory-wrapper">
+                    <span class="memory-label">Hindsight</span>
+                    <label class="switch"><input type="checkbox" id="memory-toggle" checked onchange="updateToggleUI()"><span class="slider round"></span></label>
+                </div>
+                <button class="header-btn" onclick="triggerPanicMode(this)" style="background:rgba(249,115,22,0.15);border:1px solid #ea580c;color:#fdba74;font-weight:bold;animation: pulseRed 2s infinite;">🚨 Panic Mode</button>
+                <button class="header-btn meeting-btn" onclick="triggerHeaderAction(this, 'Meeting')">📋 Upload Rubric</button>
+                <button class="header-btn velocity-btn" onclick="triggerHeaderAction(this, 'Velocity')">📈 Team Reliability</button>
+                <button class="header-btn" onclick="triggerHeaderAction(this, 'Memory Graph')">🧠 Memory Graph</button>
+            </div>
+        </header>
+
+        <div class="chat-scroll-area" id="chat-container">
+            <div id="chat-anchor"></div>
+        </div>
+
+        <div class="chat-input-wrapper">
+            <div class="chat-input-container">
+                <textarea placeholder="Message TeamSync AI..." rows="1" oninput="this.style.height='';this.style.height=this.scrollHeight+'px'"></textarea>
+                <button class="btn-send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+            </div>
+        </div>
+    </main>
+
+    <aside class="layout-panel sidebar-right">
+        <div class="kanban-header">Project Board <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></div>
+        <div class="kanban-board" id="dynamic-kanban"></div>
+    </aside>
+
+    <div id="auth-modal" class="modal-overlay" style="display:flex;">
+        <div class="modal-box auth-modal-box">
+            <div class="auth-brand"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg><span class="auth-brand-name">TeamSync AI</span></div>
+            <div class="auth-subtitle">Join your CS401 project group.</div>
+            <div class="auth-field"><label class="auth-label">Group Code</label><input id="auth-team-code" class="auth-input" type="text" placeholder="e.g. CS401" maxlength="20" oninput="this.value=this.value.toUpperCase()"></div>
+            <div class="auth-field"><label class="auth-label">Your Name</label><input id="auth-name" class="auth-input" type="text" placeholder="e.g. Sarah"></div>
+            <div class="auth-field"><label class="auth-label">Your Role</label><input id="auth-role" class="auth-input" type="text" placeholder="e.g. Team Lead"></div>
+            <div id="auth-error" class="auth-error"></div>
+            <button id="auth-submit-btn" class="auth-submit" onclick="joinTeam()">Join Group</button>
+        </div>
+    </div>
+
+    <div id="meeting-modal" class="modal-overlay">
+        <div class="modal-box meeting-modal-box">
+            <div class="modal-header"><div class="modal-title">📋 Upload Syllabus / Professor's Rubric</div><button class="modal-close" onclick="closeMeetingModal()">✕</button></div>
+            <textarea id="meeting-notes-input" class="modal-textarea" placeholder="Paste the professor's grading rubric or your team meeting notes here...&#10;&#10;e.g. Professor Smith said we MUST use APA citations. The backend needs to be in Node.js. Chad missed the milestone 1 meeting."></textarea>
+            <div class="modal-hint">This text is extracted, parsed, and embedded into Hindsight so the AI can enforce grading rules on your tasks.</div>
+            <button id="meeting-submit-btn" class="modal-submit" onclick="submitMeetingNotes()">Embed to Hindsight Memory</button>
+        </div>
+    </div>
+
+    <div id="velocity-modal" class="modal-overlay">
+        <div class="modal-box velocity-modal-box">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;"><div style="display:flex;align-items:center;gap:8px;"><span style="font-family:var(--font-display);font-weight:600;font-size:1rem;color:#d8b4fe;">Team Reliability Insights</span></div><button onclick="document.getElementById('velocity-modal').style.display='none'" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:1.25rem;">✕</button></div>
+            <div id="velocity-container" style="overflow-y:auto;max-height:65vh;display:flex;flex-direction:column;gap:12px;padding-right:4px;"></div>
+        </div>
+    </div>
+
+    <div id="memory-modal" class="modal-overlay">
+        <div class="modal-box memory-modal-box">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;flex-shrink:0;">
+                <h3 style="font-family:var(--font-display);color:var(--accent-purple);">Hindsight Memory Timeline</h3>
+                <button onclick="document.getElementById('memory-modal').style.display='none'" style="background:none;border:none;color:white;cursor:pointer;font-size:1.5rem;">✕</button>
+            </div>
+            <div id="mynetwork" style="width:100%;height:500px;border:1px solid var(--border-color);border-radius:8px;background:rgba(0,0,0,0.5);display:none;"></div>
+            <div id="timeline-container" style="overflow-y:auto;flex:1;padding-right:10px;max-height:60vh;"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+{
+    "todo": [
+        {
+            "id": "TKT-493",
+            "title": "API Rate Limiting",
+            "tag": "backend",
+            "assignee": "RK"
+        },
+        {
+            "id": "TKT-494",
+            "title": "Update Design Tokens",
+            "tag": "design",
+            "assignee": "PR"
+        }
+    ],
+    "inProgress": [
+        {
+            "id": "TKT-492",
+            "title": "DB Schema Migration",
+            "tag": "backend",
+            "assignee": "Alex"
+        },
+        {
+            "id": "TKT-495",
+            "title": "OAuth Provider Setup",
+            "tag": "frontend",
+            "assignee": "AR"
+        }
+    ],
+    "done": [
+        {
+            "id": "TKT-490",
+            "title": "Setup Repo & CI/CD",
+            "tag": "devops",
+            "assignee": "SA"
+        }
+    ]
+}
